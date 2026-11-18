@@ -19,6 +19,12 @@ Everything is stored in the browser and shared by all pages (localStorage, key `
 ## Sending
 There is no server. "Open mail" opens Gmail (app, Gmail Go or browser) with the message filled in, and you press send yourself, then tap "Mark sent".
 
+## Auto send
+On the Messages page, tap **Auto send** under "Next dispatch". It opens Gmail for the next person, waits until you come back to the app, marks that one as sent, then opens the next. A bar at the bottom shows progress and a **Stop** button. If your browser blocks the automatic re-open, the bar shows **Open next**: one tap continues. It ends by itself when nothing is left or the send limits are reached.
+
+## Colours
+Brand colour is `--brand` at the top of `styles.css` (light and dark). `recolor_logo.py [degrees]` hue-shifts the four logo/icon PNGs (run it on the originals).
+
 ## Passcode
 `gate.js` (loaded first on every page) hides the app until the passcode is entered. The device stays unlocked until the passcode is changed or "Lock" is tapped.
 Current passcode: `OLABSTECH` (case-sensitive).
