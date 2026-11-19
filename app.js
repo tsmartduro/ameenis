@@ -1,4 +1,3 @@
-const AUTO={on:false,d:null,st:'idle',left:false,n:0,t1:null,t2:null,bar:null};
 const TABS=['messages','accounts','batches','people','rotation','activity'];
 const LABEL={messages:'Messages',accounts:'Accounts',batches:'Batches',people:'Recipients',rotation:'Rotation preview',activity:'Activity'};
 const ROLE=/^(info|admin|support|sales|contact|hello|noreply|no-reply|postmaster|webmaster|abuse)@/i;
@@ -162,7 +161,7 @@ function dispatchCards(){
   const body=nx&&S.compact?`<p style="margin:8px 0 12px"><b>To ${esc(nx.p.email)}</b><br><span class="sub">From ${esc(nx.a.email)}</span></p>`:nx?`<p style="margin:6px 0 0"><b>To ${esc(nx.p.email)}</b><br><span class="sub">From ${esc(nx.a.email)} · Message ${ms.findIndex(x=>x.id===nx.m.id)+1}${cg0?' · '+esc(cg0.name):''}</span></p>${nx.m.subject?`<p style="margin:4px 0 0"><b>${esc(fill(nx.m.subject,nx.p))}</b></p>`:''}<p class="sub" style="white-space:pre-wrap;margin:2px 0 8px;max-height:44px;overflow:hidden">${esc(fill(nx.m.body,nx.p))}</p>`:`<p class="sub" style="font-size:18px;margin:8px 0 12px">${d.msg}</p>`;
   const off=nx?'':' disabled';
   const saved=pend.length?`<p class="sub" style="margin:8px 0 6px">${pend.length} waiting — ${S.sent.length===1?'1 send is':S.sent.length+' sends are'} saved.</p>${pend.map(x=>{const a=S.accs.find(y=>y.id===x.i.accId);return `<div class="item"><div><b>${esc(x.i.email)}</b><p>From ${esc(a?a.email:'removed account')}</p></div><div class="acts"><button class="btn p" data-act="markSent" data-b="${x.b}" data-id="${esc(x.i.email)}">Mark sent</button><button class="btn" data-act="putBack" data-b="${x.b}" data-id="${esc(x.i.email)}">Put back</button></div></div>`}).join('')}`:`<p class="sub" style="font-size:18px;margin:8px 0 12px">Nothing waiting — ${S.sent.length===1?'1 send is':S.sent.length+' sends are'} saved.</p>`;
-  return `<div class="card dispatch"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b class="ct" style="flex:0 0 auto"><svg class="ic" viewBox="0 0 24 24" style="color:var(--brand);vertical-align:-4px;margin-right:8px"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-4"/><path d="M12 7v1M7 12h1"/></svg>Next dispatch</b><span style="display:flex;align-items:center;gap:8px;flex:0 0 auto"><span class="sub" style="margin:0">Compact</span><button class="sw ${S.compact?'on':''}" data-act="togCompact" aria-label="Compact"></button></span></div>${body}<div class="row" style="flex-wrap:nowrap">${S.compact?'':`<button class="btn" data-act="skipOne" style="flex:0 0 auto;border:0;background:none;color:var(--mute);padding:10px 12px"${off}>Skip</button>`}<button class="btn p" data-act="sendOne" style="flex:1;padding:11px"${off}><svg class="ic" viewBox="0 0 24 24" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Send this one</button></div><button class="btn" data-act="autoToggle" style="width:100%;margin-top:10px"${AUTO.on?'':off}>${AUTO.on?'\u25a0 Stop auto send':'\u25b6 Auto send'}</button><p class="sub" style="margin:8px 0 0;font-size:13px">Auto send opens Gmail, waits until you come back, marks it sent, then opens the next one.</p></div>
+  return `<div class="card dispatch"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b class="ct" style="flex:0 0 auto"><svg class="ic" viewBox="0 0 24 24" style="color:var(--brand);vertical-align:-4px;margin-right:8px"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-4"/><path d="M12 7v1M7 12h1"/></svg>Next dispatch</b><span style="display:flex;align-items:center;gap:8px;flex:0 0 auto"><span class="sub" style="margin:0">Compact</span><button class="sw ${S.compact?'on':''}" data-act="togCompact" aria-label="Compact"></button></span></div>${body}<div class="row" style="flex-wrap:nowrap">${S.compact?'':`<button class="btn" data-act="skipOne" style="flex:0 0 auto;border:0;background:none;color:var(--mute);padding:10px 12px"${off}>Skip</button>`}<button class="btn p" data-act="sendOne" style="flex:1;padding:11px"${off}><svg class="ic" viewBox="0 0 24 24" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>Send this one</button></div></div>
 <div class="card saved"><b class="ct"><svg class="ic" viewBox="0 0 24 24" style="color:var(--brand);vertical-align:-4px;margin-right:8px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Saved place</b>${saved}</div>`;
 }
 let addOpen=false,ex=null;
@@ -281,74 +280,46 @@ function askGmail(ok,no){
 }
 const _so=acts.setOpen;acts.setOpen=d=>{_so(d);if(d.v!=='browser')S.gmailOK=false};
 
-/* ===== Auto send: open Gmail -> wait for you to come back -> mark sent -> open next ===== */
-function autoBar(){
-  if(!AUTO.bar){
-    if(!document.getElementById('auto-css')){const s=document.createElement('style');s.id='auto-css';
-      s.textContent='#autobar{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--card);color:var(--ink);border:1px solid var(--brand);border-radius:14px;padding:12px 14px;box-shadow:0 6px 24px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;max-width:560px;margin:0 auto}#autobar .at{flex:1;min-width:0;font-size:14px;line-height:1.35}#autobar .at b{display:block;font-size:15px}#autobar .btn{flex:0 0 auto}';
-      document.head.appendChild(s)}
-    const b=document.createElement('div');b.id='autobar';document.body.appendChild(b);AUTO.bar=b}
-  return AUTO.bar;
+
+/* ===== Backup & restore (optional passphrase encryption, AES-GCM) ===== */
+const toB64=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
+const fromB64=t=>{const s=atob(t),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+const bkKey=async(pw,salt)=>{const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:250000,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])};
+async function backupDownload(){
+  const pw=prompt('Optional: type a passphrase to encrypt this backup.\nLeave it empty for a plain file.\n\nIf you forget the passphrase the backup cannot be opened.');
+  if(pw===null)return;
+  let out;
+  if(pw){
+    if(!(window.crypto&&crypto.subtle))return toast('Encryption is not available in this browser');
+    const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),
+      ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await bkKey(pw,salt),new TextEncoder().encode(JSON.stringify(S)));
+    out={scout:1,enc:1,salt:toB64(salt),iv:toB64(iv),data:toB64(ct)};
+  }else out={scout:1,enc:0,state:S};
+  const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
+  a.href=url;a.download='scout-backup-'+new Date().toISOString().slice(0,10)+(pw?'-encrypted':'')+'.json';
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+  log('Backup downloaded'+(pw?' (encrypted)':''));toast('Backup downloaded');
 }
-function autoUI(){
-  if(!AUTO.on){if(AUTO.bar){AUTO.bar.remove();AUTO.bar=null}return}
-  const b=autoBar(),n=AUTO.n,sent=n+' sent this run';
-  const msg={
-    away:['Gmail is open','Send it there, then come back here \u2014 '+sent+'.'],
-    next:['Opening the next one\u2026',sent+'.'],
-    blocked:['Tap to open the next one',"Your browser needs a tap to open Gmail again. "+sent+'.']
-  }[AUTO.st]||['Auto send running',sent+'.'];
-  b.innerHTML='<div class="at"><b>'+msg[0]+'</b><span style="color:var(--mute)">'+msg[1]+'</span></div>'
-    +(AUTO.st==='blocked'?'<button class="btn p" data-act="autoGo">Open next</button>':'')
-    +'<button class="btn d" data-act="autoStop">Stop</button>';
+async function backupRestore(file){
+  let st;
+  try{
+    const o=JSON.parse(await file.text());if(!o||o.scout!==1)throw 0;
+    if(o.enc){
+      const pw=prompt('This backup is encrypted. Enter its passphrase:');if(!pw)return;
+      try{st=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(o.iv)},await bkKey(pw,fromB64(o.salt)),fromB64(o.data))))}
+      catch(e){return toast('Wrong passphrase')}
+    }else st=o.state;
+    if(!st||!Array.isArray(st.people)||!Array.isArray(st.accs)||!Array.isArray(st.msgs))throw 0;
+  }catch(e){return toast('That is not a valid Scout backup file')}
+  if(!confirm('Replace everything in this browser with the backup?\n\n'+st.people.length+' recipients, '+st.accs.length+' accounts, '+st.msgs.length+' messages.\nThis cannot be undone.'))return;
+  Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,st);
+  _flush();render();toast('Backup restored');
 }
-function autoClear(){clearTimeout(AUTO.t1);clearTimeout(AUTO.t2);AUTO.t1=AUTO.t2=null}
-function autoEnd(why){
-  autoClear();const n=AUTO.n;AUTO.on=false;AUTO.st='idle';AUTO.d=null;autoUI();
-  log('Auto send ended after '+n+' sent'+(why?' \u2014 '+why:''));save();
-  toast((why?why+' \u00b7 ':'')+n+' sent this run',4500);
-}
-// launches Gmail for the next person (or re-launches the one already waiting)
-function autoStep(){
-  if(!AUTO.on)return;
-  autoClear();
-  if(!AUTO.d){
-    const s=dState();if(!s.nx){render();return autoEnd(s.msg||'Nothing left to send')}
-    const pr=JSON.stringify(S.rot),{out,sim}=assign(ready().slice(0,1)),o=out[0],
-      b={id:uid(),name:'Send queue '+new Date().toLocaleString(),items:[{email:o.p.email,accId:o.a.id,msgId:o.m.id,grp:S.activeGroup||null,status:'pending'}]};
-    S.rot.m=sim.m;S.rot.a=sim.a;S.rot.bag=sim.bag||[];S.batches.unshift(b);log('Auto: opened send to '+o.p.email);
-    AUTO.d={b:b.id,id:o.p.email,pr};
-  }
-  const d=AUTO.d;AUTO.left=false;AUTO.st='next';autoUI();
-  acts.open(d,()=>{
-    AUTO.st='away';autoUI();save();render();
-    // if the page never went to the background, the browser blocked the launch -> ask for one tap
-    AUTO.t1=setTimeout(()=>{if(AUTO.on&&AUTO.st==='away'&&!AUTO.left){AUTO.st='blocked';autoUI()}},3000);
-  },()=>{ // launch refused or cancelled: undo this one and stop
-    acts.putBack(d);S.rot=JSON.parse(d.pr);AUTO.d=null;save();render();autoEnd('Stopped');
-  });
-}
-// you came back to the app: mark the one you were on as sent, then go on to the next
-function autoBack(){
-  if(!AUTO.on||AUTO.st!=='away'||!AUTO.left)return;
-  clearTimeout(AUTO.t1);
-  const d=AUTO.d;AUTO.d=null;AUTO.left=false;
-  try{acts.markSent(d)}catch(e){}
-  AUTO.n++;AUTO.st='next';save();render();autoUI();
-  AUTO.t2=setTimeout(()=>{
-    if(!AUTO.on)return;
-    autoStep();
-    // no tap available here, so if the browser blocks the launch the 3s check above shows the Open next button
-  },1200);
-}
-document.addEventListener('visibilitychange',()=>{if(!AUTO.on)return;if(document.visibilityState==='hidden'){if(AUTO.st==='away')AUTO.left=true}else autoBack()});
-addEventListener('blur',()=>{if(AUTO.on&&AUTO.st==='away')AUTO.left=true});
-addEventListener('focus',()=>{if(AUTO.on)autoBack()});
-Object.assign(acts,{
-  autoToggle(){if(AUTO.on)return acts.autoStop();const s=dState();if(!s.nx)return toast(s.msg);AUTO.on=true;AUTO.n=0;AUTO.d=null;AUTO.st='next';log('Auto send started');autoStep()},
-  autoGo(){if(AUTO.on){AUTO.st='next';autoStep()}},   // runs inside your tap, so the browser allows the launch
-  autoStop(){if(!AUTO.on)return;autoEnd('Stopped')}
-});
+const _actOld=views.activity;
+views.activity=()=>_actOld()+`<div class="card"><b style="font-size:22px">Back up your data</b><p class="sub" style="margin:8px 0 14px">Your list and settings are stored only in this browser. Download a backup to keep a safe copy, or restore one on a new phone or computer. A passphrase encrypts the file. Keep backups private: they contain your recipients’ emails.</p><button class="btn p" data-act="backupDownload" style="width:100%;padding:14px">Download backup</button><label style="margin-top:16px">Restore from a backup file</label><input id="bk-file" type="file" accept=".json,application/json"></div>`;
+Object.assign(acts,{backupDownload(){backupDownload()}});
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='bk-file'&&e.target.files[0]){backupRestore(e.target.files[0]);e.target.value=''}});
 let dp;addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e});
 $('inst').onclick=()=>{if(dp){dp.prompt()}else toast('Use your browser menu: Add to Home Screen')};
 _boot.then(()=>{_booted=true;render()});
