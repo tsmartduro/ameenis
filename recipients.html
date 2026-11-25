@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#00743d">
 <meta name="description" content="Scout store owners with rotating message bodies, multiple sending accounts, address checking and no repeat sends.">
 <title>ameenis-solution Scout — Recipients</title>
@@ -10,7 +10,6 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="styles.css">
-<script src="gate.js"></script>
 </head>
 <body data-page="people" data-static>
 <header class="app-header">
@@ -20,9 +19,9 @@
 </header>
 <nav class="tabs" aria-label="Sections">
   <a href="index.html" data-tab="messages"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Messages</span></a>
-  <a href="accounts.html" data-tab="accounts"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Accounts</span></a>
+  <a href="accounts.html" data-tab="accounts" class="on" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>Accounts</span></a>
   <a href="batches.html" data-tab="batches"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5"/></svg><span>Batches</span></a>
-  <a href="recipients.html" class="on" aria-current="page" data-tab="people"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6M16 4.5a3.5 3.5 0 010 7M18 14c2.5.7 4 2.5 4 6"/></svg><span>People</span></a>
+  <a href="recipients.html" data-tab="people"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-4 3-6 7-6s7 2 7 6M16 4.5a3.5 3.5 0 010 7M18 14c2.5.7 4 2.5 4 6"/></svg><span>People</span></a>
   <a href="rotation.html" data-tab="rotation"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Rotation</span></a>
   <a href="activity.html" data-tab="activity"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Activity</span></a>
 </nav>
@@ -31,9 +30,9 @@
   <p class="side-title">Workspace</p>
   <nav class="side-nav" aria-label="Workspace">
     <a href="index.html" data-tab="messages">Messages</a>
-    <a href="accounts.html" data-tab="accounts">Accounts</a>
+    <a href="accounts.html" data-tab="accounts" class="on" aria-current="page">Accounts</a>
     <a href="batches.html" data-tab="batches">Batches</a>
-    <a href="recipients.html" class="on" aria-current="page" data-tab="people">Recipients</a>
+    <a href="recipients.html" data-tab="people">Recipients</a>
     <a href="rotation.html" data-tab="rotation">Rotation preview</a>
     <a href="activity.html" data-tab="activity">Activity</a>
   </nav>
@@ -111,7 +110,6 @@
   <div id="p-list"></div>
 </section>
 </main>
-</div>
 <div id="toast"></div>
 <script src="app.js" defer></script>
 <script src="recipients.js" defer></script>
