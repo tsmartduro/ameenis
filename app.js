@@ -1,4 +1,6 @@
-const IS_APPMYSITE=/AppMySite/i.test(navigator.userAgent),WV=/; wv\)|Version\/[\d.]+ Chrome|AppMySite/i.test(navigator.userAgent),DROID=/Android/i.test(navigator.userAgent)&&!WV;
+const USER_AGENT=(navigator.userAgent||''), IS_ANDROID=/Android/i.test(USER_AGENT), IS_WEBVIEW=/;\s*wv\)|\bwv\b|AppMySite|APICodeVersion\//i.test(USER_AGENT), IS_APPMYSITE=/AppMySite|APICodeVersion\//i.test(USER_AGENT)||/(?:^|[?&])appmysite(?:=1|&|$)/i.test(location.search)||(()=>{try{return localStorage.getItem('primescout_appmysite')==='1'}catch(e){return false}})();
+if(IS_APPMYSITE){try{localStorage.setItem('primescout_appmysite','1')}catch(e){}}
+const WV=IS_WEBVIEW||IS_APPMYSITE, DROID=IS_ANDROID;
 const TABS=['messages','accounts','batches','people','rotation','activity'];
 const LABEL={messages:'Messages',accounts:'Accounts',batches:'Batches',people:'Recipients',rotation:'Rotation preview',activity:'Activity'};
 const ROLE=/^(info|admin|support|sales|contact|hello|noreply|no-reply|postmaster|webmaster|abuse)@/i;
@@ -12,8 +14,19 @@ const DEF={msgs:[
  {id:uid(),title:'Short follow-up',subject:'{store} — worth a look?',body:'Hello {name},\n\nShort note: I help store owners improve conversions. Want me to send a few ideas for {store}?\n\nCheers',on:true}],
  accs:[],people:[],batches:[],log:[],sent:[],rot:{m:0,a:0}};
 let S;try{S=JSON.parse(localStorage.getItem('saba2')||'null')}catch(e){S=null}
-S=S||DEF;
-if(!S.v2){S.v2=1;S.rot.style='shuffle';S.rot.bag=[];S.msgs=[{id:uid(),title:'Message 1',subject:'Quick idea for {name}',body:'Hi {name},\n\nI had a quick idea that could help you get more orders. Open to a short chat?\n\nThanks!',on:true},{id:uid(),title:'Message 2',subject:'A thought about {name}',body:'Hello {name},\n\nI spotted a couple of quick wins for your store and would be happy to share them for free.\n\nBest regards',on:true},{id:uid(),title:'Message 3',subject:'{name} — worth a look?',body:'{name}, short note: I help store owners improve conversions. Want a few ideas?\n\nCheers',on:true}]}
+S=S&&typeof S==='object'?S:JSON.parse(JSON.stringify(DEF));
+// Add missing fields without replacing any existing user-created messages or data.
+if(!Array.isArray(S.msgs))S.msgs=JSON.parse(JSON.stringify(DEF.msgs));
+if(!Array.isArray(S.accs))S.accs=[];
+if(!Array.isArray(S.people))S.people=[];
+if(!Array.isArray(S.batches))S.batches=[];
+if(!Array.isArray(S.log))S.log=[];
+if(!Array.isArray(S.sent))S.sent=[];
+if(!S.rot||typeof S.rot!=='object')S.rot={m:0,a:0};
+if(!Number.isFinite(+S.rot.m))S.rot.m=0;
+if(!Number.isFinite(+S.rot.a))S.rot.a=0;
+if(!S.v2){S.v2=1;S.rot.style=S.rot.style||'shuffle';S.rot.bag=Array.isArray(S.rot.bag)?S.rot.bag:[];}
+S.msgs.forEach(m=>{if(!m.id)m.id=uid();if(typeof m.on!=='boolean')m.on=true;if(typeof m.subject!=='string')m.subject='';if(typeof m.body!=='string')m.body='';});
 const PAGES={messages:'index.html',accounts:'accounts.html',batches:'batches.html',people:'recipients.html',rotation:'rotation.html',activity:'activity.html'};
 let tab=(window.SPA&&location.hash.slice(1))||document.body.dataset.page||'messages';if(!TABS.includes(tab))tab='messages';
 let _st=null,_booted=false,_ok=true,_db=null;
@@ -24,14 +37,17 @@ const idbGet=()=>_dbp.then(()=>new Promise(res=>{if(!_db)return res(null);try{co
 const _lite=lvl=>JSON.stringify(Object.assign({},S,lvl>=2?{people:[],sent:[],batches:[],log:[]}:{people:[],sent:[]}));
 const _flush=()=>{if(_st){clearTimeout(_st);_st=null}
   if(!_ok)return;
-  const lvl=S.idb||0;let lsOK=true;
-  try{localStorage.setItem('saba2',lvl?_lite(lvl):JSON.stringify(S))}catch(e){lsOK=false}
+  const lvl=S.idb||0, snapshot=JSON.stringify(S);let lsOK=true;
+  try{localStorage.setItem('saba2',lvl?_lite(lvl):snapshot)}catch(e){lsOK=false}
   const o={};_BIG.forEach(k=>o[k]=S[k]);
-  idbPut(o).then(ok=>{if(ok){if(lvl<2){S.idb=2;try{localStorage.setItem('saba2',_lite(2))}catch(e){toast('Could not save settings')}}}else toast('Could not save your data — try again')});
+  idbPut(o).then(ok=>{
+    if(ok){if(lvl<2){S.idb=2;try{localStorage.setItem('saba2',_lite(2))}catch(e){toast('Could not save settings')}}}
+    else{S.idb=0;try{localStorage.setItem('saba2',JSON.stringify(Object.assign({},S,{idb:0})))}catch(e){toast('Could not save your data — export a backup if possible',6000)}}
+  });
   if(!lsOK&&lvl>=2)toast('Could not save settings — try again')};
 const save=()=>{if(_st)clearTimeout(_st);_st=setTimeout(_flush,300)};
 addEventListener('pagehide',_flush);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')_flush()});
-try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{})}catch(e){}
 const _boot=S.idb?idbGet().then(r=>{if(r){_BIG.forEach(k=>{if(r[k]!==undefined)S[k]=r[k]})}else{_ok=false;toast('Could not load your saved data',6000)}}):Promise.resolve();
 let _ss=null,_sr=null,_sl=-1;const sentSet=()=>{if(_sr!==S.sent||_sl!==S.sent.length){_ss=new Set(S.sent);_sr=S.sent;_sl=S.sent.length}return _ss};
 const toast=(m,ms)=>{const t=document.getElementById('toast');t.textContent=m;t.className='show';clearTimeout(toast.t);toast.t=setTimeout(()=>t.className='',ms||2200)};
@@ -122,7 +138,7 @@ const isFree=d=>FREE.has(String(d||'').toLowerCase());
 const brand=d=>{const p=String(d||'').toLowerCase().split('.').filter(Boolean),n=p.length;if(n<2)return cap(p[0]||'');const b=(n>=3&&p[n-2].length<=3&&p[n-1].length===2)?p[n-3]:p[n-2];return b.split(/[-_]+/).filter(Boolean).map(cap).join(' ')};
 function derive(e){const[l,d]=e.split('@'),dom=(d||'').split('.')[0],t=l.split(/[._\-+\d]+/).filter(Boolean).find(x=>!GEN2.test(x)&&!/^(customer|client|accounts|booking|bookings|web|webmaster|noreply|no|reply|the)$/i.test(x))||'';if(isFree(d))return{name:cap(t),store:''};const b=brand(d);return{name:b,store:b}}
 function chkAddr(e){const d=(e.split('@')[1]||'').toLowerCase();if(!MAIL.test(e)||DISPOSABLE.test(e)||/\.\./.test(e)||/^(noreply|no-reply|postmaster|abuse|mailer-daemon)@/i.test(e))return'bad';if(/^(gmial|gmal|gamil|hotmial|yaho|outlok)\./.test(d)||/\.(con|cmo|coom)$/.test(d)||d==='gmail.co')return'bad';return'good'}
-function addP(e,n,s){if(sentSet().has(e)||S.people.some(p=>p.email===e))return false;const v=derive(e);S.people.push({email:e,name:n||v.name,store:s||v.store,status:'ok',chk:'unknown'});return true}
+function addP(e,n,s){if(!MAIL.test(e)||DISPOSABLE.test(e)||sentSet().has(e)||S.people.some(p=>p.email===e))return false;const v=derive(e);S.people.push({email:e,name:n||v.name,store:s||v.store,status:'ok',chk:'unknown'});return true}
 const normKey=e=>{e=String(e||'').trim().toLowerCase();const[l,d]=e.split('@');if(!d)return e;return(d==='gmail.com'||d==='googlemail.com')?l.split('+')[0].replace(/\./g,'')+'@gmail.com':e};
 const isTemp=e=>DISPOSABLE.test(String(e||'').trim()),isInvalid=e=>!isTemp(e)&&chkAddr(String(e||'').trim())==='bad';
 const dupList=()=>{const seen=new Set();return S.people.filter(p=>{const k=normKey(p.email);if(seen.has(k))return true;seen.add(k);return false})};
@@ -140,13 +156,13 @@ return `<h2>Recipients</h2><p class="sub"></p>
 <div class="card"><div class="row" style="justify-content:space-between"><b style="font-size:22px;flex:0 0 auto"><svg class="ic" viewBox="0 0 24 24" style="color:var(--brand);vertical-align:-4px;margin-right:8px">${ICO.people}</svg>Your list (${P.length})</b><button data-act="clearAll" style="flex:0 0 auto;border:0;background:none;color:var(--mute);font:inherit;cursor:pointer">Clear all</button></div>
 <div class="seg g" style="margin:14px 0">${[['all','All'],['good','Good'],['bad','Bad'],['unknown','Unknown']].map(([k,l])=>`<button class="${k===pf?'on':''}" data-act="setPf" data-v="${k}">${l}</button>`).join('')}</div>
 ${list.map(p=>{const s=st(p);return `<div class="item"><div><b>${esc(p.email)}</b> <span class="tag ${s==='good'?'ok':s==='bad'?'bad':''}">${T[s]}</span><p>${esc([p.name,p.store].filter(Boolean).join(' · '))}${sentSet().has(p.email)?' · sent':''}${p.status==='optout'?' · opted out':''}</p></div><div class="acts"><button class="btn" data-act="optout" data-id="${esc(p.email)}">Opt out</button><button class="btn d" data-act="delPerson" data-id="${esc(p.email)}">✕</button></div></div>`}).join('')||'<p class="sub" style="text-align:center;padding:24px 0">Nothing here yet.</p>'}</div>`};
-views.accounts=()=>{const g=S.groups||[],op=S.opener||'app',A=S.accs;
+views.accounts=()=>{const g=S.groups||[],op=IS_APPMYSITE?'browser':(S.opener||'app'),A=S.accs;
 return `<h2>Accounts</h2><p class="sub"></p>
 <div class="card"><b style="font-size:22px"><svg class="ic" viewBox="0 0 24 24" style="color:var(--brand);vertical-align:-4px;margin-right:8px">${ICO.accounts}</svg>Your sending accounts</b><p class="sub" style="margin:8px 0 14px">Add every Gmail address you send from. Sends are shared out evenly between the accounts that are switched on.</p>
-<div class="note">On a phone, sending opens the Gmail app with the message ready. Gmail composes from the account it is currently on, so if the wrong address shows in the From line, tap it and pick the one the app named for that send.</div>
-<div class="note"><b style="font-size:12px;letter-spacing:.06em">SEND BUTTON OPENS</b><div class="row" style="gap:8px;margin:10px 0">${[['app','Gmail app'],['go','Gmail Go'],['browser','Gmail in browser']].map(([k,l])=>`<button class="btn ${k===op?'p':''}" data-act="setOpen" data-v="${k}" style="${k===op?'':'border:0;background:none;'}flex:0 0 auto;padding:12px 18px;font-size:16px">${l}</button>`).join('')}</div><span>Your choice is remembered. Gmail Go loads faster on some phones; the browser version can target the exact account named for each send.</span></div>
+<div class="note">${IS_APPMYSITE?'In AppMySite, PrimeScout offers Gmail and Gmail Go Android Intent routes and passes the assigned sender email in the intent extras.':'On a phone, sending asks Android to open an installed email app with the message ready. Android chooses the available app; check the From line before sending.'}</div>
+<div class="note"><b style="font-size:12px;letter-spacing:.06em">SEND BUTTON OPENS</b><div class="row" style="gap:8px;margin:10px 0">${(IS_APPMYSITE?[['browser','Gmail for selected account']]:[['app','Email app'],['go','Email app (alternate)'],['browser','Gmail in browser']]).map(([k,l])=>`<button class="btn ${k===op?'p':''}" data-act="setOpen" data-v="${k}" style="${k===op?'':'border:0;background:none;'}flex:0 0 auto;padding:12px 18px;font-size:16px">${l}</button>`).join('')}</div><span>${IS_APPMYSITE?'In AppMySite, drafts use Android Intent routes for Gmail or Gmail Go and include the assigned sender email as authAccount/fromAccountString extras. Gmail may ignore these extras depending on its version.':'Your choice is remembered. Android selects the installed email handler for app options; the browser option opens Gmail on the web.'}</span></div>
 <div class="row" style="flex-wrap:nowrap"><input id="a-email" type="email" placeholder="you@gmail.com" style="min-width:0"><button class="btn p" data-act="addAcc" style="padding:14px 18px;flex:0 0 auto">＋ Add</button></div><p class="sub" style="margin:18px 0 8px">Or paste several, one address per line.</p><textarea id="a-bulk" style="min-height:110px" placeholder="you@gmail.com&#10;second@gmail.com"></textarea><button class="btn" data-act="addAccBulk" style="width:100%;margin-top:12px;padding:14px">Add all accounts</button></div>
-<div class="card"><b style="font-size:22px">Accounts (${A.length})</b>${A.map((a,i)=>`<div class="mrow" style="flex-wrap:wrap;margin-top:12px"><div class="num">${i+1}</div><div class="mt"><b>${esc(a.email)}</b><small>${sentToday(a.id)} sent · ${pendingFor(a.id)} queued</small></div><button class="sw ${a.on?'on':''}" data-act="togAcc" data-id="${a.id}" aria-label="Toggle account"></button><button class="trash" data-act="delAcc" data-id="${a.id}" aria-label="Delete account">✕</button><div class="row" style="flex-basis:100%"><div><label>Batch</label><select data-grp="${a.id}"><option value="">No batch</option>${g.map(x=>`<option value="${x.id}" ${a.group===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div><button class="btn" data-act="openGmail" data-id="${a.id}" style="flex-basis:100%">Open Gmail</button></div>`).join('')||'<p class="sub" style="text-align:center;padding:30px 0 40px">No sending accounts yet.</p>'}</div>
+<div class="card"><b style="font-size:22px">Accounts (${A.length})</b>${A.map((a,i)=>`<div class="mrow" style="flex-wrap:wrap;margin-top:12px"><div class="num">${i+1}</div><div class="mt"><b>${esc(a.email)}</b><small>${sentToday(a.id)} sent · ${pendingFor(a.id)} queued</small></div><button class="sw ${a.on?'on':''}" data-act="togAcc" data-id="${a.id}" aria-label="Toggle account"></button><button class="trash" data-act="delAcc" data-id="${a.id}" aria-label="Delete account">✕</button><div class="row" style="flex-basis:100%"><div><label>Batch</label><select data-grp="${a.id}"><option value="">No batch</option>${g.map(x=>`<option value="${x.id}" ${a.group===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div><button class="btn" data-act="openGmail" data-id="${a.id}" style="flex-basis:100%">Open email app</button></div>`).join('')||'<p class="sub" style="text-align:center;padding:30px 0 40px">No sending accounts yet.</p>'}</div>
 <div class="card"><b style="font-size:22px">Backup account</b><p class="sub" style="margin:8px 0 14px">If the account whose turn it is has been switched off, the app sends from this one instead, so the run never stops.</p>${A.length?`<select data-bk="1"><option value="">No backup</option>${A.map(a=>`<option value="${a.id}" ${S.backup===a.id?'selected':''}>${esc(a.email)}</option>`).join('')}</select>`:'<p class="sub" style="text-align:center;padding:24px 0">Add an account first.</p>'}</div>`};
 
 function dState(){
@@ -210,10 +226,11 @@ mkBatch(){if(!S.msgs.some(m=>m.on))return toast('Turn on a message body');if(!S.
  S.rot.m=sim.m;S.rot.a=sim.a;S.rot.bag=sim.bag||[];S.batches.unshift({id:uid(),name:'Send queue '+new Date().toLocaleString(),items:out.map(o=>({email:o.p.email,accId:o.a.id,msgId:o.m.id,grp:S.activeGroup||null,status:'pending'}))});log('Created batch of '+out.length)},
 delBatch(d){S.batches=S.batches.filter(x=>x.id!==d.id)},
 markSent(d){const[,i]=find(d.b,d.id);i.status='sent';i.day=today();i.ts=Date.now();const gg=(S.groups||[]).find(x=>x.id===i.grp);if(gg){gg.count++;gg.counts=gg.counts||{};gg.counts[i.accId]=(gg.counts[i.accId]||0)+1}if(!sentSet().has(i.email))S.sent.push(i.email);log('Sent to '+i.email)},
-copy(d){const t=compose(d);navigator.clipboard&&navigator.clipboard.writeText((t.subject?t.subject+'\n\n':'')+t.body).then(()=>toast('Copied'),()=>toast('Copy blocked'))},
-open(d){const t=compose(d);location.href='mailto:'+encodeURIComponent(d.id)+'?subject='+encodeURIComponent(t.subject)+'&body='+encodeURIComponent(t.body)},
+copy(d){const t=compose(d),value=(t.subject?t.subject+'\n\n':'')+t.body;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(value).then(()=>toast('Copied'),()=>copyFallback(value))}else copyFallback(value)},
 reset(){if(confirm('Erase everything?')){S=JSON.parse(JSON.stringify(DEF));S.msgs.forEach(m=>m.id=uid())}}
 };
+const readFileText=file=>{if(file&&typeof file.text==='function')return file.text();return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||''));reader.onerror=()=>reject(reader.error||new Error('File read failed'));reader.readAsText(file)})};
+function copyFallback(value){const el=document.createElement('textarea');el.value=value;el.setAttribute('readonly','');el.style.position='fixed';el.style.opacity='0';document.body.appendChild(el);el.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}el.remove();toast(ok?'Copied':'Copy blocked')}
 function compose(d){const[,i]=find(d.b,d.id),m=S.msgs.find(x=>x.id===i.msgId)||{subject:'',body:''},p=S.people.find(x=>x.email===i.email)||{};return{subject:fill(m.subject,p),body:fill(m.body,p)}}
 document.addEventListener('click',e=>{
  const t=e.target.closest('[data-tab]');if(t){if(window.SPA){e.preventDefault();tab=t.dataset.tab;history.replaceState(null,'','#'+tab);window.scrollTo(0,0);render()}return}
@@ -227,20 +244,20 @@ Object.assign(acts,{addAccBulk(){const el=$('a-bulk'),seen=new Set(S.accs.map(a=
   (el?el.value:'').split('\n').forEach(l=>{if(!l.trim())return;const m=l.match(/[^\s,;<>"']+@[^\s,;<>"']+/g);if(!m){bad++;return}
     m.forEach(e=>{e=e.toLowerCase();if(!MAIL.test(e)){bad++;return}if(seen.has(e)){dup++;return}seen.add(e);S.accs.push({id:uid(),email:e,label:'',cap:40,on:true});n++})});
   if(el)el.value='';log(`Added ${n} accounts, skipped ${dup} duplicates and ${bad} invalid`);toast(`Added ${n} \u00b7 ${dup} duplicates \u00b7 ${bad} invalid`,3500)}});
-Object.assign(acts,{skipOne(){const r=ready();if(r.length<2)return toast('Nothing else to skip to');const i=S.people.findIndex(p=>p.email===r[0].email),[p]=S.people.splice(i,1);S.people.push(p);log('Skipped '+p.email)},sendOne(){const s=dState();if(!s.nx)return toast(s.msg);const pr=JSON.stringify(S.rot),{out,sim}=assign(ready().slice(0,1)),o=out[0],b={id:uid(),name:'Send queue '+new Date().toLocaleString(),items:[{email:o.p.email,accId:o.a.id,msgId:o.m.id,grp:S.activeGroup||null,status:'pending'}]};S.rot.m=sim.m;S.rot.a=sim.a;S.rot.bag=sim.bag||[];S.batches.unshift(b);log('Opened send to '+o.p.email);const d={b:b.id,id:o.p.email};acts.open(d,()=>{acts.markSent(d);save();render();toast('Marked as sent — Gmail should show From: '+(S.accs.find(x=>x.id===b.items[0].accId)||o.a).email,5000)},()=>{acts.putBack(d);S.rot=JSON.parse(pr);save();render()})},putBack(d){const[b,i]=find(d.b,d.id);b.items=b.items.filter(x=>x!==i);if(!b.items.length)S.batches=S.batches.filter(x=>x!==b);log('Put back '+d.id)}});
+Object.assign(acts,{skipOne(){const r=ready();if(r.length<2)return toast('Nothing else to skip to');const i=S.people.findIndex(p=>p.email===r[0].email),[p]=S.people.splice(i,1);S.people.push(p);log('Skipped '+p.email)},sendOne(){const s=dState();if(!s.nx)return toast(s.msg);const pr=JSON.stringify(S.rot),{out,sim}=assign(ready().slice(0,1)),o=out[0],b={id:uid(),name:'Send queue '+new Date().toLocaleString(),items:[{email:o.p.email,accId:o.a.id,msgId:o.m.id,grp:S.activeGroup||null,status:'pending'}]};S.rot.m=sim.m;S.rot.a=sim.a;S.rot.bag=sim.bag||[];S.batches.unshift(b);log('Opened email draft for '+o.p.email);const d={b:b.id,id:o.p.email};acts.open(d,()=>{save();render();toast('Draft opened. After sending it, tap Mark sent.',4500)},()=>{acts.putBack(d);S.rot=JSON.parse(pr);save();render()})},putBack(d){const[b,i]=find(d.b,d.id);b.items=b.items.filter(x=>x!==i);if(!b.items.length)S.batches=S.batches.filter(x=>x!==b);log('Put back '+d.id)}});
 function pendingFor(id){return S.batches.flatMap(b=>b.items).filter(i=>i.status==='pending'&&i.accId===id).length}
 document.addEventListener('keydown',e=>{if(e.key!=='Enter')return;const id=e.target.id;if(id==='a-email'||id==='p-one'){e.preventDefault();acts[id==='a-email'?'addAcc':'addOne']();save();render()}});
 function effAcc(i){const a=S.accs.find(x=>x.id===i.accId);if(a&&a.on)return a;return S.accs.find(x=>x.id===S.backup)||a}
 Object.assign(acts,{setOpen(d){S.opener=d.v},addAcc(){const e=$('a-email').value.trim().toLowerCase();if(!MAIL.test(e))return toast('Enter a valid email');if(S.accs.some(a=>a.email===e))return toast('Account already added');S.accs.push({id:uid(),email:e,label:'',cap:40,on:true});log('Added account '+e);if($('a-email'))$('a-email').value=''},delAcc(d){S.accs=S.accs.filter(x=>x.id!==d.id);if(S.backup===d.id)S.backup=null}});
 const _ms=acts.markSent;acts.markSent=d=>{const[,i]=find(d.b,d.id),e=effAcc(i);if(e)i.accId=e.id;_ms(d)};
 document.addEventListener('change',e=>{const c=e.target.closest('[data-cap]');if(c){S.accs.find(x=>x.id===c.dataset.cap).cap=Math.max(1,+c.value||40);save();render();return}const b=e.target.closest('[data-bk]');if(b){S.backup=b.value||null;save();render()}});
-Object.assign(acts,{addOne(){const e=$('p-one').value.trim().toLowerCase();if(!/\S+@\S+/.test(e))return toast('Enter an email');if(addP(e)){log('Added '+e);toast('Added');$('p-one').value=''}else toast('Already on your list')},importList(){const r=importText($('p-in').value);if($('p-in'))$('p-in').value='';const m=importMsg(r);S.lastImport=m;window.plimit=100;log('Imported: '+m);toast(m,5000)},checkAll(){let c=0;S.people.forEach(p=>{if((p.chk||'unknown')==='unknown'){p.chk=chkAddr(p.email);c++}});log('Checked '+c+' addresses');toast(c?'Checked '+c:'Nothing to check')},togBad(){S.sendBad=!S.sendBad},clearAll(){const n=S.people.length;if(!n)return toast('The list is already empty');if(confirm('Remove all '+n+' people from the list? Your sent history is kept.')){S.people=[];S.lastImport='';window.plimit=100;log('Cleared '+n+' people');toast('Removed '+n+' people')}},setPf(d){pf=d.v}});
+Object.assign(acts,{addOne(){const e=$('p-one').value.trim().toLowerCase();if(!MAIL.test(e))return toast('Enter a valid email');if(addP(e)){log('Added '+e);toast('Added');$('p-one').value=''}else toast('Already on your list')},importList(){const r=importText($('p-in').value);if($('p-in'))$('p-in').value='';const m=importMsg(r);S.lastImport=m;window.plimit=100;log('Imported: '+m);toast(m,5000)},checkAll(){let c=0;S.people.forEach(p=>{if((p.chk||'unknown')==='unknown'){p.chk=chkAddr(p.email);c++}});log('Checked '+c+' addresses');toast(c?'Checked '+c:'Nothing to check')},togBad(){S.sendBad=!S.sendBad},clearAll(){const n=S.people.length;if(!n)return toast('The list is already empty');if(confirm('Remove all '+n+' people from the list? Your sent history is kept.')){S.people=[];S.lastImport='';window.plimit=100;log('Cleared '+n+' people');toast('Removed '+n+' people')}},setPf(d){pf=d.v}});
 Object.assign(acts,{grpAll(){S.activeGroup=null},grpAdd(){gAdd=!gAdd},grpSave(){S.groups=S.groups||[];S.groups.push({id:uid(),name:'Batch '+(S.groups.length+1),limit:Math.max(0,Math.floor(+$('g-lim').value||0)),count:0,counts:{}});gAdd=false;log('Added batch '+S.groups.length)},grpPick(d){const x=S.groups.find(g=>g.id===d.id);S.activeGroup=x.id;x.count=0;x.counts={};log(x.name+' switched on, count starts fresh')},grpNext(){const g=S.groups,i=g.findIndex(x=>x.id===S.activeGroup),x=g[(i+1)%g.length];S.activeGroup=x.id;x.count=0;x.counts={};log('Switched to '+x.name)},grpDel(d){S.groups=S.groups.filter(x=>x.id!==d.id);S.accs.forEach(a=>{if(a.group===d.id)a.group=null});if(S.activeGroup===d.id)S.activeGroup=null}});
 document.addEventListener('change',e=>{const s=e.target.closest('[data-grp]');if(!s)return;S.accs.find(x=>x.id===s.dataset.grp).group=s.value||null;save();render()});
 function askFrom(email,ok,no){
   if(!document.getElementById('modal-css')){const s=document.createElement('style');s.id='modal-css';s.textContent='.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:50;padding:16px}.mbox{background:var(--card);color:var(--ink);border-radius:14px;padding:18px;max-width:420px;width:100%}.mbox p{color:var(--mute);margin:8px 0 14px}';document.head.appendChild(s)}
   const o=document.createElement('div');o.className='modal';
-  o.innerHTML=`<div class="mbox"><b style="font-size:18px">Send from ${esc(email)}</b><p>Gmail writes from the account it is currently on. If the From line shows a different address, tap it and pick <b>${esc(email)}</b>. The address is copied for you.</p><div class="row"><button class="btn" data-m="no">Cancel</button><button class="btn p" data-m="ok">Open Gmail</button></div></div>`;
+  o.innerHTML=`<div class="mbox"><b style="font-size:18px">Send from ${esc(email)}</b><p>Gmail writes from the account it is currently on. If the From line shows a different address, tap it and pick <b>${esc(email)}</b>. The address is copied for you.</p><div class="row"><button class="btn" data-m="no">Cancel</button><button class="btn p" data-m="ok">Open email app</button></div></div>`;
   document.body.appendChild(o);
   try{navigator.clipboard&&navigator.clipboard.writeText(email).catch(()=>{})}catch(e){}
   o.onclick=e=>{const m=e.target.dataset.m;if(!m)return;o.remove();if(m==='ok')ok();else if(no)no()};
@@ -248,7 +265,7 @@ function askFrom(email,ok,no){
 function gUrl(email,m){const q=encodeURIComponent;return m?`https://mail.google.com/mail/?view=cm&fs=1&authuser=${q(email)}&to=${q(m.to)}&su=${q(m.su)}&body=${q(m.body)}`:`https://mail.google.com/mail/?authuser=${q(email)}`}
 function launchUrl(u,tab){const l=document.createElement('a');l.href=u;if(tab){l.target='_blank';l.rel='noopener'}document.body.appendChild(l);l.click();l.remove()}
 function wvChooser(email,m,web){
-  const q=encodeURIComponent,mt='mailto:'+m.to+'?subject='+q(m.su||'')+'&body='+q(m.body||''),
+  const q=encodeURIComponent,mt=mailtoUrl(m),
     txt='To: '+m.to+'\nSubject: '+(m.su||'')+'\n\n'+(m.body||'');
   const o=document.createElement('div');
   o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:99;padding:16px';
@@ -264,30 +281,67 @@ function wvChooser(email,m,web){
     function fb(){const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();try{document.execCommand('copy');ok()}catch(e){toast('Copy failed')}t.remove()}};
   o.querySelector('#wv-done').onclick=()=>o.remove();
 }
+function mailtoUrl(m){const q=encodeURIComponent,to=String(m&&m.to||'').trim().replace(/[\r\n]/g,'');return 'mailto:'+q(to).replace(/%40/gi,'@')+'?subject='+q(m&&m.su||'')+'&body='+q(m&&m.body||'')}
+function androidMailIntent(email,m,packageName){
+  const q=encodeURIComponent;
+  const to=String(m&&m.to||'').trim().replace(/[\r\n]/g,'');
+  const subject=String(m&&m.su||'');
+  const body=String(m&&m.body||'');
+  const recipient=q(to).replace(/%40/gi,'@');
+  // Android Intent URI requested for PrimeScout. Keep all variable values
+  // URL-encoded so spaces, ampersands, Unicode and line breaks stay intact.
+  const fallback=q(gUrl(email,m));
+  return 'intent:mailto:'+recipient
+    +'?subject='+q(subject)+'&body='+q(body)
+    +'#Intent;action=android.intent.action.SENDTO'
+    +';package='+packageName
+    +';S.android.intent.extra.SUBJECT='+q(subject)
+    +';S.android.intent.extra.TEXT='+q(body)
+    +';S.authAccount='+q(email)
+    +';S.fromAccountString='+q(email)
+    +';S.browser_fallback_url='+fallback
+    +';end';
+}
+function launchAndroidMailIntent(email,m,packageName){
+  const uri=androidMailIntent(email,m,packageName);
+  // Trigger from the user's click so Android WebView can hand the intent to
+  // the installed package. AppMySite must allow intent:// external schemes.
+  const a=document.createElement('a');
+  a.href=uri;
+  a.rel='noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return uri;
+}
+function appMySiteMailChooser(email,m){
+  const o=document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:99;padding:16px';
+  const btn='display:block;text-align:center;padding:14px;border-radius:10px;margin-top:10px;font-weight:700;text-decoration:none;border:1px solid #6d28d9;color:#6d28d9;background:#fff;font-size:15px;width:100%;box-sizing:border-box';
+  o.innerHTML='<div style="background:#fff;color:#111;border-radius:14px;padding:18px;max-width:420px;width:100%">'
+    +'<b style="font-size:18px">Choose your Gmail app</b>'
+    +'<p style="margin:8px 0 4px;color:#555;font-size:14px">PrimeScout will pass the assigned sender account: <b>'+esc(email)+'</b>.</p>'
+    +'<button style="'+btn+'" data-pkg="com.google.android.gm">Open Gmail</button>'
+    +'<button style="'+btn+'" data-pkg="com.google.android.gm.lite">Open Gmail Go</button>'
+    +'<button style="'+btn+';background:#6d28d9;color:#fff" data-close="1">Cancel</button></div>';
+  document.body.appendChild(o);
+  o.addEventListener('click',e=>{
+    const pkg=e.target&&e.target.dataset&&e.target.dataset.pkg;
+    if(pkg){o.remove();launchAndroidMailIntent(email,m,pkg);return}
+    if(e.target&&e.target.dataset&&e.target.dataset.close)o.remove();
+  });
+}
 function gmailLaunch(email,mode,m){
   if(!MAIL.test(email||''))return null;
-  const web=gUrl(email,m);
-  // Preserve the existing explicit browser option.
-  if(mode==='browser'){launchUrl(web,true);return web}
-  // AppMySite runs in a WebView. Send the Android Intent directly so the
-  // selected PrimeScout option (Gmail or Gmail Go) targets the correct app.
-  if(IS_APPMYSITE){
-    const q=encodeURIComponent,
-      pkg=mode==='go'?'com.google.android.gm.lite':'com.google.android.gm',
-      to=String(m&&m.to||'').trim().replace(/[\r\n]/g,''),
-      subject=String(m&&m.su||''),
-      body=String(m&&m.body||''),
-      u=`intent:mailto:${q(to).replace(/%40/gi,'@')}?subject=${q(subject)}&body=${q(body)}#Intent;action=android.intent.action.SENDTO;package=${pkg};S.android.intent.extra.SUBJECT=${q(subject)};S.android.intent.extra.TEXT=${q(body)};S.authAccount=${q(email)};S.fromAccountString=${q(email)};end`;
-    launchUrl(u,false);return u;
+  if(IS_APPMYSITE&&DROID){
+    appMySiteMailChooser(email,m);
+    return 'android-intent://gmail';
   }
-  // Keep the original embedded-WebView chooser for other WebView hosts.
-  if(WV&&m){wvChooser(email,m,web);return web}
-  if(!DROID){launchUrl(web,true);return web}
-  const q=encodeURIComponent,pkg=mode==='go'?'com.google.android.gm.lite':'com.google.android.gm',
-    to=String(m&&m.to||'').trim().replace(/[\r\n]/g,''),
-    subject=String(m&&m.su||''),body=String(m&&m.body||''),
-    u=`intent:mailto:${q(to).replace(/%40/gi,'@')}?subject=${q(subject)}&body=${q(body)}#Intent;action=android.intent.action.SENDTO;package=${pkg};S.android.intent.extra.SUBJECT=${q(subject)};S.android.intent.extra.TEXT=${q(body)};S.authAccount=${q(email)};S.fromAccountString=${q(email)};end`;
-  launchUrl(u,false);return u;
+  if(IS_APPMYSITE){const web=gUrl(email,m);launchUrl(web,false);return web}
+  if(mode==='browser'){const web=gUrl(email,m);launchUrl(web,true);return web}
+  const mailto=mailtoUrl(m);
+  if(WV&&m){wvChooser(email,m,gUrl(email,m));return mailto}
+  launchUrl(mailto,false);return mailto;
 }
 const _open=d=>{const t=compose(d),[,i]=find(d.b,d.id),a=effAcc(i);if(!a||!MAIL.test(a.email||'')){toast('No valid email address for the sending account — nothing was opened');return false}if(String(d.id).trim().toLowerCase()===a.email.trim().toLowerCase()){toast('Sender and recipient are the same address — nothing was opened');return false}return gmailLaunch(a.email,S.opener||'app',{to:d.id,su:t.subject,body:t.body})!==null};
 acts.open=(d,after,cancel)=>{const[,i]=find(d.b,d.id),a=effAcc(i),op=S.opener||'app';
@@ -306,13 +360,13 @@ acts.openGmail=d=>{
   const a=S.accs.find(x=>x.id===d.id);
   if(!a){toast('Account not found \u2014 nothing was opened');return}
   if(!MAIL.test(a.email||'')){toast('This account has no valid email address \u2014 nothing was opened');return}
-  const op=S.opener||'app',app=op!=='browser'&&DROID;
+  const op=S.opener||'app',app=op!=='browser'&&IS_ANDROID;
   const go=()=>{gmailLaunch(a.email,op,null);toast(app?'Opening Gmail for '+a.email:'Opening Gmail for '+a.email+' \u2014 sign in as it if Google asks',app?2500:5000)};
   if(app)askGmail(go);else go();
 };
 function askGmail(ok,no){
   if(S.gmailOK)return ok();
-  notice('Allow ameenis-solution to open the Gmail app?','This app will open the Gmail app to write a draft with the From address set to the account you choose. It cannot read your mail or see your accounts. Android decides which account Gmail actually uses, so check the From line.','Allow',()=>{S.gmailOK=true;save();ok()},'Not now',no);
+  notice(IS_APPMYSITE?'Open Gmail for the selected account?':'Allow an email app to open?',IS_APPMYSITE?'PrimeScout will pass '+esc(S.lastFrom||'the assigned sender account')+' to Gmail/Gmail Go using Android Intent extras. The email app must support those extras.':'This app will ask Android to open an installed email app with your draft. Android chooses the available email handler and sending account; check the From line before sending.','Continue',()=>{S.gmailOK=true;save();ok()},'Not now',no);
 }
 const _so=acts.setOpen;acts.setOpen=d=>{_so(d);if(d.v!=='browser')S.gmailOK=false};
 
@@ -340,7 +394,7 @@ async function backupDownload(){
 async function backupRestore(file){
   let st;
   try{
-    const o=JSON.parse(await file.text());if(!o||o.scout!==1)throw 0;
+    const o=JSON.parse(await readFileText(file));if(!o||o.scout!==1)throw 0;
     if(o.enc){
       const pw=prompt('This backup is encrypted. Enter its passphrase:');if(!pw)return;
       try{st=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:fromB64(o.iv)},await bkKey(pw,fromB64(o.salt)),fromB64(o.data))))}
@@ -360,9 +414,12 @@ let dp;addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e});
 $('inst').onclick=()=>{if(dp){dp.prompt()}else toast('Use your browser menu: Add to Home Screen')};
 _boot.then(()=>{_booted=true;render()});
 
-if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
-['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
-document.addEventListener('touchmove',e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+  const appMode=IS_APPMYSITE||(()=>{try{return localStorage.getItem('primescout_appmysite')==='1'}catch(e){return false}})();
+  if(appMode){const ownWorker=new URL('./sw.js',location.href).href;navigator.serviceWorker.getRegistrations().then(rs=>rs.filter(r=>r.active&&r.active.scriptURL===ownWorker).forEach(r=>r.unregister())).catch(()=>{});}
+  else navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+}
+// Leave native WebView touch gestures and pinch-to-zoom available for accessibility.
 Object.assign(acts,{fixNames(){const hit=S.people.filter(p=>!isFree(p.email.split('@')[1]));if(!hit.length)return toast('No business emails found');if(!confirm('Set the name to the company after @ for '+hit.length+' business emails? Emails on the free providers (Gmail, Yahoo, Outlook…) are not changed.'))return;hit.forEach(p=>{const b=brand(p.email.split('@')[1]);p.name=b;if(!p.store)p.store=b});log('Set name from domain for '+hit.length+' emails');toast('Updated '+hit.length+' names')},togCompact(){S.compact=!S.compact},removeTemp(){purge('temp')},removeInvalid(){purge('inv')},removeDup(){purge('dup')},removeJunk(){purge('all')}});
 Object.assign(acts,{moreP(){window.plimit=(window.plimit||100)+300}});
 Object.assign(acts,{clearAccs(){const n=S.accs.length;if(!n)return toast('No accounts to clear');if(!confirm('Delete all '+n+' account'+(n>1?'s':'')+'? This cannot be undone.'))return;S.accs=[];S.backup=null;(S.groups||[]).forEach(x=>{x.count=0;x.counts={}});log('Cleared all accounts');toast('Deleted '+n+' accounts')}});
