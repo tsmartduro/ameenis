@@ -1,3 +1,4 @@
+const WV=/; wv\)|Version\/[\d.]+ Chrome|AppMySite/i.test(navigator.userAgent),DROID=/Android/i.test(navigator.userAgent)&&!WV;
 const TABS=['messages','accounts','batches','people','rotation','activity'];
 const LABEL={messages:'Messages',accounts:'Accounts',batches:'Batches',people:'Recipients',rotation:'Rotation preview',activity:'Activity'};
 const ROLE=/^(info|admin|support|sales|contact|hello|noreply|no-reply|postmaster|webmaster|abuse)@/i;
@@ -249,14 +250,14 @@ function launchUrl(u,tab){const l=document.createElement('a');l.href=u;if(tab){l
 function gmailLaunch(email,mode,m){
   if(!MAIL.test(email||''))return null;
   const web=gUrl(email,m);
-  if(mode==='browser'||!/Android/i.test(navigator.userAgent)){launchUrl(web,true);return web}
+  if(mode==='browser'||!DROID){launchUrl(web,true);return web}
   const q=encodeURIComponent,pkg=mode==='go'?'com.google.android.gm.lite':'com.google.android.gm',
     u=`intent:mailto:${q(m?m.to:'').replace(/%40/g,'@')}?subject=${q(m?m.su:'')}&body=${q(m?m.body:'')}#Intent;action=android.intent.action.SENDTO;package=${pkg};S.authAccount=${q(email)};S.fromAccountString=${q(email)};end`;
   launchUrl(u,false);return u}
 const _open=d=>{const t=compose(d),[,i]=find(d.b,d.id),a=effAcc(i);if(!a||!MAIL.test(a.email||'')){toast('No valid email address for the sending account — nothing was opened');return false}if(String(d.id).trim().toLowerCase()===a.email.trim().toLowerCase()){toast('Sender and recipient are the same address — nothing was opened');return false}return gmailLaunch(a.email,S.opener||'app',{to:d.id,su:t.subject,body:t.body})!==null};
 acts.open=(d,after,cancel)=>{const[,i]=find(d.b,d.id),a=effAcc(i),op=S.opener||'app';
   const orig=S.accs.find(x=>x.id===i.accId),go=()=>{if(_open(d)===false){if(cancel)cancel();return}if(a){S.lastFrom=a.email;S.lastFromAt=Date.now();save()}if(orig&&a&&orig.id!==a.id)notice('Backup account used',esc(orig.email)+' is switched off, so this send used the backup account <b>'+esc(a.email)+'</b>.','OK');if(after)after()};
-  if(op!=='browser'&&/Android/i.test(navigator.userAgent))return askGmail(go,()=>{if(cancel)cancel()});
+  if(op!=='browser'&&DROID)return askGmail(go,()=>{if(cancel)cancel()});
   return go();
 };
 function notice(title,text,okLabel,cb,cancelLabel,onNo){
@@ -270,7 +271,7 @@ acts.openGmail=d=>{
   const a=S.accs.find(x=>x.id===d.id);
   if(!a){toast('Account not found \u2014 nothing was opened');return}
   if(!MAIL.test(a.email||'')){toast('This account has no valid email address \u2014 nothing was opened');return}
-  const op=S.opener||'app',app=op!=='browser'&&/Android/i.test(navigator.userAgent);
+  const op=S.opener||'app',app=op!=='browser'&&DROID;
   const go=()=>{gmailLaunch(a.email,op,null);toast(app?'Opening Gmail for '+a.email:'Opening Gmail for '+a.email+' \u2014 sign in as it if Google asks',app?2500:5000)};
   if(app)askGmail(go);else go();
 };
