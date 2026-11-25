@@ -267,7 +267,7 @@ function wvChooser(email,m,web){
 function gmailLaunch(email,mode,m){
   if(!MAIL.test(email||''))return null;
   const web=gUrl(email,m);
-  if(WV&&m){wvChooser(email,m,web);return web}
+  if(WV&&m&&mode!=='browser'){wvChooser(email,m,web);return web}
   if(mode==='browser'||!DROID){launchUrl(web,true);return web}
   const q=encodeURIComponent,pkg=mode==='go'?'com.google.android.gm.lite':'com.google.android.gm',
     u=`intent:mailto:${q(m?m.to:'').replace(/%40/g,'@')}?subject=${q(m?m.su:'')}&body=${q(m?m.body:'')}#Intent;action=android.intent.action.SENDTO;package=${pkg};S.authAccount=${q(email)};S.fromAccountString=${q(email)};end`;
