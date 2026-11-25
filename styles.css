@@ -93,8 +93,6 @@ th{color:var(--mute)}
 :root{--bg:#f5f3fa;--ink:#160f29;--mute:#6b7280;--line:#ddd7ee;--navbg:#f1eef9;--tint:#ede7fb;--tintline:#c9b8f2;--hf:"Space Grotesk","Inter",system-ui,sans-serif;--bf:"Manrope","Inter",system-ui,sans-serif;--uf:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#120f1d;--ink:#ece8f7;--mute:#a69fbd;--line:#2e2946;--navbg:#171325;--tint:#221a3d;--tintline:#4b3a85}}
 .logo{width:50px;height:50px;border-radius:0;background:none;object-fit:contain}
-@media(max-width:819px){{
-}}
 body:not([data-page="activity"]) main{font-family:var(--uf);padding-top:0}
 body:not([data-page="activity"]) .hero{background:var(--card);margin:0 -16px 16px;padding:22px 16px 20px;border-bottom:1px solid var(--line)}
 body:not([data-page="activity"]) .hero .eyebrow{font:500 13px/1.2 var(--uf);letter-spacing:0;text-transform:uppercase;color:var(--brand)}

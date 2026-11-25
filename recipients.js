@@ -19,7 +19,7 @@ document.addEventListener('change',async e=>{
   let tot={a:0,inList:0,wasSent:0,bad:0},skipped=0;
   for(const f of files){
     if(/\.(xlsx?|numbers|ods)$/i.test(f.name)){skipped++;toast('Save '+f.name+' as CSV first');continue}
-    let t='';try{t=await f.text()}catch(err){skipped++;continue}
+    let t='';try{t=await readFileText(f)}catch(err){skipped++;continue}
     const r=importText(t);for(const k in tot)tot[k]+=r[k];
   }
   const msg=importMsg(tot)+(skipped?' \u00b7 '+skipped+' file(s) skipped':'');
