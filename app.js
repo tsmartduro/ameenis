@@ -247,9 +247,27 @@ function askFrom(email,ok,no){
 }
 function gUrl(email,m){const q=encodeURIComponent;return m?`https://mail.google.com/mail/?view=cm&fs=1&authuser=${q(email)}&to=${q(m.to)}&su=${q(m.su)}&body=${q(m.body)}`:`https://mail.google.com/mail/?authuser=${q(email)}`}
 function launchUrl(u,tab){const l=document.createElement('a');l.href=u;if(tab){l.target='_blank';l.rel='noopener'}document.body.appendChild(l);l.click();l.remove()}
+function wvChooser(email,m,web){
+  const q=encodeURIComponent,mt='mailto:'+m.to+'?subject='+q(m.su||'')+'&body='+q(m.body||''),
+    txt='To: '+m.to+'\nSubject: '+(m.su||'')+'\n\n'+(m.body||'');
+  const o=document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:99;padding:16px';
+  const bs='display:block;text-align:center;padding:13px;border-radius:10px;margin-top:10px;font-weight:700;text-decoration:none;border:1px solid #6d28d9;color:#6d28d9;background:#fff;font-size:15px;width:100%;box-sizing:border-box';
+  o.innerHTML='<div style="background:#fff;color:#111;border-radius:14px;padding:18px;max-width:420px;width:100%"><b style="font-size:18px">Send to '+esc(m.to)+'</b><p style="margin:8px 0 4px;color:#555;font-size:14px">From '+esc(email)+'. Pick what works in this app:</p>'
+   +'<a style="'+bs+'" href="'+esc(mt)+'">1. Open mail app (mailto)</a>'
+   +'<a style="'+bs+'" href="'+esc(web)+'" target="_blank" rel="noopener">2. Open Gmail website</a>'
+   +'<button style="'+bs+'" id="wv-copy">3. Copy message</button>'
+   +'<button style="'+bs.replace('#fff','#6d28d9').replace('color:#6d28d9','color:#fff')+'" id="wv-done">Done</button></div>';
+  document.body.appendChild(o);
+  o.querySelector('#wv-copy').onclick=()=>{const ok=()=>toast('Copied. Paste it into your mail app');
+    try{navigator.clipboard.writeText(txt).then(ok,()=>fb())}catch(e){fb()}
+    function fb(){const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();try{document.execCommand('copy');ok()}catch(e){toast('Copy failed')}t.remove()}};
+  o.querySelector('#wv-done').onclick=()=>o.remove();
+}
 function gmailLaunch(email,mode,m){
   if(!MAIL.test(email||''))return null;
   const web=gUrl(email,m);
+  if(WV&&m){wvChooser(email,m,web);return web}
   if(mode==='browser'||!DROID){launchUrl(web,true);return web}
   const q=encodeURIComponent,pkg=mode==='go'?'com.google.android.gm.lite':'com.google.android.gm',
     u=`intent:mailto:${q(m?m.to:'').replace(/%40/g,'@')}?subject=${q(m?m.su:'')}&body=${q(m?m.body:'')}#Intent;action=android.intent.action.SENDTO;package=${pkg};S.authAccount=${q(email)};S.fromAccountString=${q(email)};end`;
