@@ -159,8 +159,8 @@ ${list.map(p=>{const s=st(p);return `<div class="item"><div><b>${esc(p.email)}</
 views.accounts=()=>{const g=S.groups||[],op=IS_APPMYSITE?'browser':(S.opener||'app'),A=S.accs;
 return `<h2>Accounts</h2><p class="sub"></p>
 <div class="card"><b style="font-size:22px"><svg class="ic" viewBox="0 0 24 24" style="color:var(--brand);vertical-align:-4px;margin-right:8px">${ICO.accounts}</svg>Your sending accounts</b><p class="sub" style="margin:8px 0 14px">Add every Gmail address you send from. Sends are shared out evenly between the accounts that are switched on.</p>
-<div class="note">${IS_APPMYSITE?'In AppMySite, PrimeScout opens the Gmail web composer in this app and requests the sending account assigned to the recipient. Sign into that Gmail account in this WebView first.':'On a phone, sending asks Android to open an installed email app with the message ready. Android chooses the available app; check the From line before sending.'}</div>
-<div class="note"><b style="font-size:12px;letter-spacing:.06em">SEND BUTTON OPENS</b><div class="row" style="gap:8px;margin:10px 0">${(IS_APPMYSITE?[['browser','Gmail for selected account']]:[['app','Email app'],['go','Email app (alternate)'],['browser','Gmail in browser']]).map(([k,l])=>`<button class="btn ${k===op?'p':''}" data-act="setOpen" data-v="${k}" style="${k===op?'':'border:0;background:none;'}flex:0 0 auto;padding:12px 18px;font-size:16px">${l}</button>`).join('')}</div><span>${IS_APPMYSITE?'In AppMySite, drafts open Gmail web inside this WebView with the selected account requested. The native Gmail/Gmail Go app cannot be forced to use a specific sender account by website code.':'Your choice is remembered. Android selects the installed email handler for app options; the browser option opens Gmail on the web.'}</span></div>
+<div class="note">${IS_APPMYSITE?'In AppMySite, PrimeScout offers Gmail and Gmail Go Android Intent routes and passes the assigned sender email in the intent extras.':'On a phone, sending asks Android to open an installed email app with the message ready. Android chooses the available app; check the From line before sending.'}</div>
+<div class="note"><b style="font-size:12px;letter-spacing:.06em">SEND BUTTON OPENS</b><div class="row" style="gap:8px;margin:10px 0">${(IS_APPMYSITE?[['browser','Gmail for selected account']]:[['app','Email app'],['go','Email app (alternate)'],['browser','Gmail in browser']]).map(([k,l])=>`<button class="btn ${k===op?'p':''}" data-act="setOpen" data-v="${k}" style="${k===op?'':'border:0;background:none;'}flex:0 0 auto;padding:12px 18px;font-size:16px">${l}</button>`).join('')}</div><span>${IS_APPMYSITE?'In AppMySite, drafts use Android Intent routes for Gmail or Gmail Go and include the assigned sender email as authAccount/fromAccountString extras. Gmail may ignore these extras depending on its version.':'Your choice is remembered. Android selects the installed email handler for app options; the browser option opens Gmail on the web.'}</span></div>
 <div class="row" style="flex-wrap:nowrap"><input id="a-email" type="email" placeholder="you@gmail.com" style="min-width:0"><button class="btn p" data-act="addAcc" style="padding:14px 18px;flex:0 0 auto">＋ Add</button></div><p class="sub" style="margin:18px 0 8px">Or paste several, one address per line.</p><textarea id="a-bulk" style="min-height:110px" placeholder="you@gmail.com&#10;second@gmail.com"></textarea><button class="btn" data-act="addAccBulk" style="width:100%;margin-top:12px;padding:14px">Add all accounts</button></div>
 <div class="card"><b style="font-size:22px">Accounts (${A.length})</b>${A.map((a,i)=>`<div class="mrow" style="flex-wrap:wrap;margin-top:12px"><div class="num">${i+1}</div><div class="mt"><b>${esc(a.email)}</b><small>${sentToday(a.id)} sent · ${pendingFor(a.id)} queued</small></div><button class="sw ${a.on?'on':''}" data-act="togAcc" data-id="${a.id}" aria-label="Toggle account"></button><button class="trash" data-act="delAcc" data-id="${a.id}" aria-label="Delete account">✕</button><div class="row" style="flex-basis:100%"><div><label>Batch</label><select data-grp="${a.id}"><option value="">No batch</option>${g.map(x=>`<option value="${x.id}" ${a.group===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div></div><button class="btn" data-act="openGmail" data-id="${a.id}" style="flex-basis:100%">Open email app</button></div>`).join('')||'<p class="sub" style="text-align:center;padding:30px 0 40px">No sending accounts yet.</p>'}</div>
 <div class="card"><b style="font-size:22px">Backup account</b><p class="sub" style="margin:8px 0 14px">If the account whose turn it is has been switched off, the app sends from this one instead, so the run never stops.</p>${A.length?`<select data-bk="1"><option value="">No backup</option>${A.map(a=>`<option value="${a.id}" ${S.backup===a.id?'selected':''}>${esc(a.email)}</option>`).join('')}</select>`:'<p class="sub" style="text-align:center;padding:24px 0">Add an account first.</p>'}</div>`};
@@ -282,17 +282,65 @@ function wvChooser(email,m,web){
   o.querySelector('#wv-done').onclick=()=>o.remove();
 }
 function mailtoUrl(m){const q=encodeURIComponent,to=String(m&&m.to||'').trim().replace(/[\r\n]/g,'');return 'mailto:'+q(to).replace(/%40/gi,'@')+'?subject='+q(m&&m.su||'')+'&body='+q(m&&m.body||'')}
+function androidMailIntent(email,m,packageName){
+  const q=encodeURIComponent;
+  const to=String(m&&m.to||'').trim().replace(/[\r\n]/g,'');
+  const subject=String(m&&m.su||'');
+  const body=String(m&&m.body||'');
+  const recipient=q(to).replace(/%40/gi,'@');
+  // Android Intent URI requested for PrimeScout. Keep all variable values
+  // URL-encoded so spaces, ampersands, Unicode and line breaks stay intact.
+  const fallback=q(gUrl(email,m));
+  return 'intent:mailto:'+recipient
+    +'?subject='+q(subject)+'&body='+q(body)
+    +'#Intent;action=android.intent.action.SENDTO'
+    +';package='+packageName
+    +';S.android.intent.extra.SUBJECT='+q(subject)
+    +';S.android.intent.extra.TEXT='+q(body)
+    +';S.authAccount='+q(email)
+    +';S.fromAccountString='+q(email)
+    +';S.browser_fallback_url='+fallback
+    +';end';
+}
+function launchAndroidMailIntent(email,m,packageName){
+  const uri=androidMailIntent(email,m,packageName);
+  // Trigger from the user's click so Android WebView can hand the intent to
+  // the installed package. AppMySite must allow intent:// external schemes.
+  const a=document.createElement('a');
+  a.href=uri;
+  a.rel='noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return uri;
+}
+function appMySiteMailChooser(email,m){
+  const o=document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:99;padding:16px';
+  const btn='display:block;text-align:center;padding:14px;border-radius:10px;margin-top:10px;font-weight:700;text-decoration:none;border:1px solid #6d28d9;color:#6d28d9;background:#fff;font-size:15px;width:100%;box-sizing:border-box';
+  o.innerHTML='<div style="background:#fff;color:#111;border-radius:14px;padding:18px;max-width:420px;width:100%">'
+    +'<b style="font-size:18px">Choose your Gmail app</b>'
+    +'<p style="margin:8px 0 4px;color:#555;font-size:14px">PrimeScout will pass the assigned sender account: <b>'+esc(email)+'</b>.</p>'
+    +'<button style="'+btn+'" data-pkg="com.google.android.gm">Open Gmail</button>'
+    +'<button style="'+btn+'" data-pkg="com.google.android.gm.lite">Open Gmail Go</button>'
+    +'<button style="'+btn+';background:#6d28d9;color:#fff" data-close="1">Cancel</button></div>';
+  document.body.appendChild(o);
+  o.addEventListener('click',e=>{
+    const pkg=e.target&&e.target.dataset&&e.target.dataset.pkg;
+    if(pkg){o.remove();launchAndroidMailIntent(email,m,pkg);return}
+    if(e.target&&e.target.dataset&&e.target.dataset.close)o.remove();
+  });
+}
 function gmailLaunch(email,mode,m){
   if(!MAIL.test(email||''))return null;
-  // AppMySite website-only mode cannot pass a native Android Intent extra for
-  // the sender account. Use Gmail's account-aware web composer in the SAME
-  // WebView instead: authuser targets the account already signed into Gmail web.
-  // This avoids the WebView chooser/Chrome hand-off and does not guess a package.
+  if(IS_APPMYSITE&&DROID){
+    appMySiteMailChooser(email,m);
+    return 'android-intent://gmail';
+  }
   if(IS_APPMYSITE){const web=gUrl(email,m);launchUrl(web,false);return web}
   if(mode==='browser'){const web=gUrl(email,m);launchUrl(web,true);return web}
   const mailto=mailtoUrl(m);
   if(WV&&m){wvChooser(email,m,gUrl(email,m));return mailto}
-  // Standard mailto for ordinary browsers: Android chooses an installed handler.
   launchUrl(mailto,false);return mailto;
 }
 const _open=d=>{const t=compose(d),[,i]=find(d.b,d.id),a=effAcc(i);if(!a||!MAIL.test(a.email||'')){toast('No valid email address for the sending account — nothing was opened');return false}if(String(d.id).trim().toLowerCase()===a.email.trim().toLowerCase()){toast('Sender and recipient are the same address — nothing was opened');return false}return gmailLaunch(a.email,S.opener||'app',{to:d.id,su:t.subject,body:t.body})!==null};
@@ -318,7 +366,7 @@ acts.openGmail=d=>{
 };
 function askGmail(ok,no){
   if(S.gmailOK)return ok();
-  notice(IS_APPMYSITE?'Open Gmail for the selected account?':'Allow an email app to open?',IS_APPMYSITE?'PrimeScout will open Gmail web inside this app and request the account '+esc(S.lastFrom||'you selected')+'. Gmail must already be signed in to that account in this WebView.':'This app will ask Android to open an installed email app with your draft. Android chooses the available email handler and sending account; check the From line before sending.','Continue',()=>{S.gmailOK=true;save();ok()},'Not now',no);
+  notice(IS_APPMYSITE?'Open Gmail for the selected account?':'Allow an email app to open?',IS_APPMYSITE?'PrimeScout will pass '+esc(S.lastFrom||'the assigned sender account')+' to Gmail/Gmail Go using Android Intent extras. The email app must support those extras.':'This app will ask Android to open an installed email app with your draft. Android chooses the available email handler and sending account; check the From line before sending.','Continue',()=>{S.gmailOK=true;save();ok()},'Not now',no);
 }
 const _so=acts.setOpen;acts.setOpen=d=>{_so(d);if(d.v!=='browser')S.gmailOK=false};
 
